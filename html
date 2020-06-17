@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>
+            IndexedDB
+        </title>
+        <style>
+            *{padding: 0;margin: 0;} #container{ width: 800px; margin: 50px auto;
+            border:1px solid red; padding: 10px; } table{ width: 100%; margin: auto;
+            border: 1px solid black; } thead{ border: 1px solid black } td{ width:
+            33.3%; height: 10px; border: 1px solid black; }
+        </style>
+    </head>
+    <body>
+        <div id="container">
+            <label>
+                姓名
+            </label>
+            <input type="text" placeholder="请输入你的姓名" id="add_name" />
+            <label>
+                年龄
+            </label>
+            <input type="text" placeholder="请输入你的年龄" id="add_age" />
+            <button id="add_btn">
+                添加用户
+            </button>
+            <br>
+            <label>
+                主键值：
+            </label>
+            <input type="text" placeholder="请输入你要删除的主键值" id="delete_primary_key" />
+            <label>
+                姓名
+            </label>
+            <input type="text" placeholder="请输入你要删除的姓名" id="delete_name" />
+            <button id="delete_btn">
+                删除用户
+            </button>
+            <input type="text" placeholder="请输入你要删除的姓名" id="find_name" />
+            <button id="find_btn">
+                查用户
+            </button>
+            <br>
+            <table>
+                <thead>
+                    <tr>
+                        <!-- <td>主键</td> -->
+                        <td>
+                            姓名
+                        </td>
+                        <td>
+                            年龄
+                        </td>
+                    </tr>
+                </thead>
+                <tbody id="_tbody">
+                </tbody>
+            </table>
+        </div>
+        <script>
+            function createPromiseCallback() {
+    var resolve, reject;
+    var promise = new Promise(function(_resolve, _reject) {
+        resolve = _resolve;
+        reject = _reject;
+    });
+    var cb = function(err, res) {
+        if (err) {
+            return reject(err)
+        }
+        resolve(res || '');
+    };
+    return {
+        promise: promise,
+        cb: cb
+    }
+};
+
+var DBSharp = {
+
+    DB: null,
+
+    init: function(dbName, storeName, ver) {
+
+        let assign = createPromiseCallback();
+        let cb = assign.cb;
+
+        request = indexedDB.open(dbName, ver);
+
+        request.onerror = function(event) { //打开失败
+            console.log('open Error! fail to open database with' + event.target.message);
+            cb(event.target.message);
+        };
+        //打开数据库成功，onsuccess事件被触发
+        request.onsuccess = function(ev) {
+            console.log("success open the database!");
+            console.log("数据库名：" + dbName + "，版本号：" + ver);
+            let db = DBSharp.DDB = ev.target.result;
+            cb(null, true);
+        };
+
+        //在新的数据库创建或数据库版本号被修改时，onupgradeneeeded事件被触发
+        request.onupgradeneeded = function(event) {
+            alert("version Change");
+            var db = DBSharp.DDB = event.target.result; //获取到的数据库
+            //在数据库下面创建对象空间
+            if (!db.objectStoreNames.contains(storeName)) {
+                var objStore = db.createObjectStore(storeName, {
+                    keyPath: 'name'
+                });
+                console.log("对象仓库创建成功", objStore);
+                //在对象仓库下面创建索引表
+                objStore.createIndex('nameIndex', 'name', {
+                    unique: true
+                });
+                // objStore.createIndex('ageIndex', 'age', {unique: false});
+                console.log('索引表创建成功');
+            }
+
+            cb(null, true);
+
+        };
+
+        return assign.promise;
+    },
+
+    query: function(queryParams) {
+
+        let assign = createPromiseCallback();
+        let cb = assign.cb;
+
+        let successFn = function(event) {
+            let db = DBSharp.DDB || (DBSharp.DDB = event.target.result);
+            let store = queryParams.store;
+            let objStore = db.transaction([store], 'readonly').objectStore(store);
+
+            objStore.get(queryParams.key).onsuccess = function(e) { //异步的
+                cb(null, e.target.result)
+            };
+        };
+
+        if (DBSharp.DDB) {
+            successFn();
+        } else {
+            let openRequest = indexedDB.open(queryParams.db, queryParams.ver);
+            openRequest.onerror = function() {
+                cb('error in open indexedDB');
+            };
+            openRequest.onsuccess = successFn;
+        }
+
+        return assign.promise;
+    },
+
+    set: function(setParams) {
+
+        let assign = createPromiseCallback();
+        let cb = assign.cb;
+
+        let store = setParams.store;
+
+        let successFn = function(event) {
+
+            let db = DBSharp.DDB || (DBSharp.DDB = event.target.result);
+            let objStore = db.transaction(store, 'readwrite').objectStore(store);
+            //添加数据
+            let res = objStore.add(setParams.val);
+            res.onsuccess = function() {
+                cb(res.error, true);
+            };
+            res.onerror = function() {
+                cb(res.error);
+            };
+
+        };
+
+        if (DBSharp.DDB) {
+            //db已经打开
+            successFn();
+        } else {
+            let openRequest = indexedDB.open(setParams.db, setParams.ver);
+            openRequest.onerror = function() {
+                cb('error in open indexedDB');
+            }
+            openRequest.onsuccess = successFn;
+        }
+
+        return assign.promise;
+    },
+
+    del: function(delParams) {
+
+        let assign = createPromiseCallback();
+        let cb = assign.cb;
+
+        let store = delParams.store;
+
+        let successFn = function(event) {
+
+            let db = DBSharp.DDB || (DBSharp.DDB = event.target.result);
+            let del = db.transaction(store, 'readwrite').objectStore(store).delete(delParams.key);
+
+            del.onsuccess = function() {
+                cb(null, true)
+            }
+            del.onerror = function() {
+                cb(del.error)
+            }
+        };
+
+        if (DBSharp.DDB) {
+            //db已经打开
+            successFn();
+        } else {
+            let openRequest = indexedDB.open(delParams.db, delParams.ver);
+            openRequest.onerror = function() {
+                cb('error in open indexedDB');
+            }
+            openRequest.onsuccess = successFn;
+        }
+
+        return assign.promise;
+    }
+
+};
+
+window.onload = function() {
+    //1.创建数据库，对象仓库，索引表
+    let dbName = 'DB3'; //数据库名
+    let storeName = '3d'; //表名
+    let version = 3; //版本号
+    let students = new Array(); //学生表的信息
+    let request;
+
+    //创建索引数据库
+    DBSharp.init(dbName, storeName, version).then(function() {
+        //显示数据
+        console.log(DBSharp.DDB);
+        showData(dbName, storeName, version).then(strHTML => {
+            document.getElementById('_tbody').innerHTML = strHTML;
+        });
+    }); //填入三个参数数据库名，表名，版本号
+
+    // 添加数据
+    document.getElementById('add_btn').onclick = function() { //点击添加按钮触发
+        console.log("按钮点击成功");
+
+        let add_name = document.getElementById("add_name").value;
+        let add_age = document.getElementById('add_age').value;
+        let students = {
+            name: add_name,
+            age: add_age
+        };
+
+        if (add_name != "" && add_age != "") {
+
+            DBSharp.set({
+                db: dbName,
+                ver: version,
+                store: storeName,
+                val: students
+            }).then(function(res) {
+                console.log(res)
+            }).
+            catch(function(err) {
+                console.log('err:', err)
+            });
+
+        } else {
+            alert("姓名和年龄中不能留空！");
+        }
+    }
+
+    document.getElementById('find_btn').onclick = function() { //点击添加按钮触发
+        console.log("cha cun点击成功");
+
+        let find_name = document.getElementById("find_name").value;
+
+        let queryParams = {
+            db: dbName,
+            ver: version,
+            store: storeName,
+            key: find_name
+        };
+
+        DBSharp.query(queryParams).then(function(res) {
+            console.log('res', res)
+        });
+
+    }
+
+
+
+    function showData(dbName, storeName, version) {
+        let openRequest = indexedDB.open(dbName, version);
+        openRequest.onerror = function() {
+            alert("打开数据库失败！！！");
+        }
+        openRequest.onsuccess = function(ev) {
+            //获取数据库
+            let db = ev.target.result;
+            //创建事务
+            let transaction = db.transaction([storeName], 'readwrite');
+            //获取对象仓库
+            let objStore = transaction.objectStore(storeName);
+            //通过游标的方式遍历数据
+            let cursorRequest = objStore.openCursor();
+
+            let strHTML = "";
+
+            cursorRequest.onsuccess = function(event) {
+                let cursor = event.target.result;
+
+                if (cursor) {
+                    strHTML = strHTML + ('<tr>'
+                        /*  + '<td>' + cursor.value.ppid + '</td>'*/
+                        + '<td style="width: 200px">' + cursor.value.name + '</td>' + '<td style="width: 180px">' + cursor.value.age + '</td>' + '</tr>');
+
+                    cursor.
+                    continue();
+                } else {
+                    //已经遍历完成所有
+                    cb(null, strHTML);
+                }
+
+            }
+        }
+
+        var assign = createPromiseCallback();
+        var promise = assign.promise;
+        var cb = assign.cb;
+
+        return promise
+    }
+
+    delete_btn.onclick = function() {
+        var primary_key = (document.getElementById('delete_primary_key').value);
+
+        console.log("删除按钮点击成功");
+
+        if (primary_key != "") {
+            DBSharp.del({
+                db: dbName,
+                ver: version,
+                store: storeName,
+                key: primary_key
+            }).then(function(res) {
+                console.log(res)
+            }).
+            catch(function(err) {
+                console.log('err:', err)
+            });
+        } else {
+            alert("主键值和姓名中不能留空！");
+        }
+
+    }
+
+}
+        </script>
+    </body>
+
+</html>
