@@ -1,65 +1,65 @@
 <!DOCTYPE html>
 <html lang="en">
-	<head>
-		<meta charset="UTF-8">
-		<title>
-			IndexedDB
-		</title>
-		<style>
-			*{padding: 0;margin: 0;} #container{ width: 800px; margin: 50px auto;
-			border:1px solid red; padding: 10px; } table{ width: 100%; margin: auto;
-			border: 1px solid black; } thead{ border: 1px solid black } td{ width:
-			33.3%; height: 10px; border: 1px solid black; }
-		</style>
-	</head>
-	<body>
-		<div id="container">
-			<label>
-				姓名
-			</label>
-			<input type="text" placeholder="请输入你的姓名" id="add_name" />
-			<label>
-				年龄
-			</label>
-			<input type="text" placeholder="请输入你的年龄" id="add_age" />
-			<button id="add_btn">
-				添加用户
-			</button>
-			<br>
-			<label>
-				主键值：
-			</label>
-			<input type="text" placeholder="请输入你要删除的主键值" id="delete_primary_key" />
-			<label>
-				姓名
-			</label>
-			<input type="text" placeholder="请输入你要删除的姓名" id="delete_name" />
-			<button id="delete_btn">
-				删除用户
-			</button>
-			<input type="text" placeholder="请输入你要删除的姓名" id="find_name" />
-			<button id="find_btn">
-				查用户
-			</button>
-			<br>
-			<table>
-				<thead>
-					<tr>
-						<!-- <td>主键</td> -->
-						<td>
-							姓名
-						</td>
-						<td>
-							年龄
-						</td>
-					</tr>
-				</thead>
-				<tbody id="_tbody">
-				</tbody>
-			</table>
-		</div>
-		<script>
-			function createPromiseCallback() {
+    <head>
+        <meta charset="UTF-8">
+        <title>
+            IndexedDB
+        </title>
+        <style>
+            *{padding: 0;margin: 0;} #container{ width: 800px; margin: 50px auto;
+            border:1px solid red; padding: 10px; } table{ width: 100%; margin: auto;
+            border: 1px solid black; } thead{ border: 1px solid black } td{ width:
+            33.3%; height: 10px; border: 1px solid black; }
+        </style>
+    </head>
+    <body>
+        <div id="container">
+            <label>
+                姓名
+            </label>
+            <input type="text" placeholder="请输入你的姓名" id="add_name" />
+            <label>
+                年龄
+            </label>
+            <input type="text" placeholder="请输入你的年龄" id="add_age" />
+            <button id="add_btn">
+                添加用户
+            </button>
+            <br>
+            <label>
+                主键值：
+            </label>
+            <input type="text" placeholder="请输入你要删除的主键值" id="delete_primary_key" />
+            <label>
+                姓名
+            </label>
+            <input type="text" placeholder="请输入你要删除的姓名" id="delete_name" />
+            <button id="delete_btn">
+                删除用户
+            </button>
+            <input type="text" placeholder="请输入你要删除的姓名" id="find_name" />
+            <button id="find_btn">
+                查用户
+            </button>
+            <br>
+            <table>
+                <thead>
+                    <tr>
+                        <!-- <td>主键</td> -->
+                        <td>
+                            姓名
+                        </td>
+                        <td>
+                            年龄
+                        </td>
+                    </tr>
+                </thead>
+                <tbody id="_tbody">
+                </tbody>
+            </table>
+        </div>
+        <script>
+            function createPromiseCallback() {
     var resolve, reject;
     var promise = new Promise(function(_resolve, _reject) {
         resolve = _resolve;
@@ -112,11 +112,11 @@ var DBSharp = {
             //在数据库下面创建对象空间
             if (!db.objectStoreNames.contains(storeName)) {
                 var objStore = db.createObjectStore(storeName, {
-                    keyPath: 'name'
+                    keyPath: 'id'
                 });
                 console.log("对象仓库创建成功", objStore);
                 //在对象仓库下面创建索引表
-                objStore.createIndex('nameIndex', 'name', {
+                objStore.createIndex('nameIndex', 'id', {
                     unique: true
                 });
                 // objStore.createIndex('ageIndex', 'age', {unique: false});
@@ -141,7 +141,8 @@ var DBSharp = {
             let objStore = db.transaction([store], 'readonly').objectStore(store);
 
             objStore.get(key).onsuccess = function(e) { //异步的
-                cb(null, e.target.result)
+                console.log(e);
+                cb(e.target.result === undefined ? 'no data found':null, e.target.result)
             };
         };
 
@@ -253,8 +254,8 @@ window.onload = function() {
         console.log("按钮点击成功");
 
         let students = {
-            name: add_name.value,
-            age: add_age.value
+            id: add_name.value,
+            val: add_age.value
         };
 
         if (students.name != "" && students.age != "") {
@@ -277,7 +278,7 @@ window.onload = function() {
 
         DBSharp.query(find_name).then(function(res) {
             console.log('res', res)
-        });
+        }).catch(err=>{console.log(err)});
 
     }
 
@@ -304,7 +305,7 @@ window.onload = function() {
                 if (cursor) {
                     strHTML = strHTML + ('<tr>'
                         /*  + '<td>' + cursor.value.ppid + '</td>'*/
-                        + '<td style="width: 200px">' + cursor.value.name + '</td>' + '<td style="width: 180px">' + cursor.value.age + '</td>' + '</tr>');
+                        + '<td style="width: 200px">' + cursor.value.id + '</td>' + '<td style="width: 180px">' + cursor.value.val + '</td>' + '</tr>');
 
                     cursor.
                     continue();
@@ -340,7 +341,7 @@ window.onload = function() {
     }
 
 }
-		</script>
-	</body>
+        </script>
+    </body>
 
 </html>
